@@ -64,19 +64,42 @@ def task_files(folder: Path):
     return files
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def menu_markup():
     tasks = list_tasks()
-    if not tasks:
-        await update.message.reply_text("Пока нет ни одной задачи. Попроси Али добавить.")
-        return
-
     buttons = [
         [InlineKeyboardButton(title, callback_data=f"task:{task_id}")]
         for task_id, title, _desc, _folder in tasks
     ]
+    return tasks, InlineKeyboardMarkup(buttons) if buttons else None
+
+
+back_to_menu_markup = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("⬅️ В меню", callback_data="menu")]]
+)
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tasks, markup = menu_markup()
+    if not tasks:
+        await update.message.reply_text("Пока нет ни одной задачи. Попроси Али добавить.")
+        return
     await update.message.reply_text(
         "Привет! Выбери задачу — пришлю инструкцию и все файлы:",
-        reply_markup=InlineKeyboardMarkup(buttons),
+        reply_markup=markup,
+    )
+
+
+async def on_menu_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    tasks, markup = menu_markup()
+    if not tasks:
+        await query.message.reply_text("Пока нет ни одной задачи. Попроси Али добавить.")
+        return
+    await query.message.reply_text(
+        "Выбери задачу — пришлю инструкцию и все файлы:",
+        reply_markup=markup,
     )
 
 
@@ -88,7 +111,7 @@ async def on_task_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     folder = TASKS_DIR / task_id
     meta_file = folder / "meta.json"
     if not folder.exists() or not meta_file.exists():
-        await query.message.reply_text("Задача не найдена (возможно, её переименовали).")
+        await query.message.reply_text("Задача не найдена (возможно, её переименовали).", reply_markup=back_to_menu_markup)
         return
 
     meta = json.loads(meta_file.read_text(encoding="utf-8"))
@@ -99,7 +122,7 @@ async def on_task_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     files = task_files(folder)
     if not files:
-        await query.message.reply_text("В этой задаче пока нет файлов.")
+        await query.message.reply_text("В этой задаче пока нет файлов.", reply_markup=back_to_menu_markup)
         return
 
     for f in files:
@@ -108,7 +131,9 @@ async def on_task_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     how_to = meta.get("how_to")
     if how_to:
-        await query.message.reply_text(how_to)
+        await query.message.reply_text(how_to, reply_markup=back_to_menu_markup)
+    else:
+        await query.message.reply_text("Готово ✅", reply_markup=back_to_menu_markup)
 
 
 async def list_tasks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,6 +144,7 @@ def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("tasks", list_tasks_command))
+    app.add_handler(CallbackQueryHandler(on_menu_click, pattern=r"^menu$"))
     app.add_handler(CallbackQueryHandler(on_task_click, pattern=r"^task:"))
 
     logger.info("Бот запущен, задач найдено: %d", len(list_tasks()))
