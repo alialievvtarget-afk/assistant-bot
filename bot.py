@@ -78,13 +78,20 @@ back_to_menu_markup = InlineKeyboardMarkup(
 )
 
 
+WELCOME_TEXT = (
+    "Привет! 👋\n"
+    "Это бот-помощник Али для автоматизации бизнес-задач.\n\n"
+    "Здесь ты найдёшь готовые инструкции и материалы по рабочим процессам — выбери задачу ниже:"
+)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tasks, markup = menu_markup()
     if not tasks:
         await update.message.reply_text("Пока нет ни одной задачи. Попроси Али добавить.")
         return
     await update.message.reply_text(
-        "Привет! Выбери задачу — пришлю инструкцию и все файлы:",
+        WELCOME_TEXT,
         reply_markup=markup,
     )
 
