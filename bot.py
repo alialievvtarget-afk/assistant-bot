@@ -106,6 +106,10 @@ async def on_task_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with open(f, "rb") as fh:
             await query.message.reply_document(document=fh, filename=f.name)
 
+    how_to = meta.get("how_to")
+    if how_to:
+        await query.message.reply_text(how_to)
+
 
 async def list_tasks_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await start(update, context)
